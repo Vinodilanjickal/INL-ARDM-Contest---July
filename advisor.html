@@ -469,6 +469,17 @@
       cursor: pointer;
     }
 
+    .program-card {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .program-card .tile {
+      min-height: 132px;
+    }
+
     .add-login:focus {
       outline: 3px solid rgba(166, 25, 34, .16);
     }
@@ -482,6 +493,7 @@
       .shell,
       .hero,
       .split { grid-template-columns: 1fr; }
+      .program-card { grid-template-columns: 1fr 1fr; }
       .slab-card { grid-template-columns: 1fr; }
       .login-row { grid-template-columns: 1fr 1fr; }
       .login-wcp { text-align: left; }
@@ -489,7 +501,8 @@
 
     @media (max-width: 520px) {
       .pair,
-      .choice-row { grid-template-columns: 1fr; }
+      .choice-row,
+      .program-card { grid-template-columns: 1fr; }
       .wcp { font-size: 40px; }
       .wcp small { font-size: 20px; }
     }
@@ -565,6 +578,27 @@
                 <label class="switch"><input id="discountCatA" type="checkbox"> CAT A as on 1 Jul</label>
                 <label class="switch"><input id="discountEim" type="checkbox"> EIM recruited from Dec 2026</label>
               </div>
+              <label>
+                Advisor Star Club
+                <select id="advisorClub">
+                  <option value="none">No Star Club / Not selected</option>
+                  <option value="rising">Rising Star</option>
+                  <option value="bronze">Bronze</option>
+                  <option value="silver">Silver</option>
+                  <option value="gold">Gold</option>
+                  <option value="goldPremier">Gold Premier</option>
+                  <option value="diamond">Diamond</option>
+                  <option value="platinum">Platinum</option>
+                  <option value="titanium">Titanium</option>
+                </select>
+              </label>
+              <label>
+                New L1 Launch Program M0-M1
+                <select id="m0m1Eligible">
+                  <option value="no">No</option>
+                  <option value="yes">Yes</option>
+                </select>
+              </label>
               <div class="previous-logins">
                 <div class="previous-title">Previous logins to calculate automatically</div>
                 <div id="previousLogins" class="login-grid"></div>
@@ -633,6 +667,32 @@
                 <span id="progressStart">Current slab</span>
                 <span id="progressEnd">Next slab</span>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">Additional Program Payouts</div>
+          <div class="program-card">
+            <div class="tile">
+              <div class="eyebrow">Pension special / launch</div>
+              <strong id="pensionProgramAmount" class="money">INR 0</strong>
+              <div id="pensionProgramDetail" class="note">Applies when pension product is selected</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow">Star Club payout</div>
+              <strong id="starClubAmount" class="money">INR 0</strong>
+              <div id="starClubDetail" class="note">Select advisor club in optional inputs</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow">New L1 launch program</div>
+              <strong id="newL1Amount" class="money">INR 0</strong>
+              <div id="newL1Detail" class="note">Set M0-M1 to Yes in optional inputs</div>
+            </div>
+            <div class="tile">
+              <div class="eyebrow">Additional payout total</div>
+              <strong id="additionalProgramTotal" class="money">INR 0</strong>
+              <div id="additionalProgramDetail" class="note">Pension + Star Club + New L1 Launch</div>
             </div>
           </div>
         </div>
@@ -756,6 +816,24 @@
       jul31: {
         ask: [150000, 200000, 250000, 550000, 700000, 900000, 1400000, 1900000]
       }
+    };
+
+    const starClubRates = {
+      none: { label: "No Star Club / Not selected", rate: 0 },
+      rising: { label: "Rising Star", rate: 5 },
+      bronze: { label: "Bronze", rate: 10 },
+      silver: { label: "Silver", rate: 25 },
+      gold: { label: "Gold", rate: 40 },
+      goldPremier: { label: "Gold Premier", rate: 50 },
+      diamond: { label: "Diamond", rate: 60 },
+      platinum: { label: "Platinum", rate: 75 },
+      titanium: { label: "Titanium", rate: 85 }
+    };
+
+    const newL1LaunchRates = {
+      1: { 25000: 1000, 75000: 1500, 110000: 2500, 300000: 20000 },
+      2: { 25000: 1250, 75000: 2000, 110000: 3500, 300000: 20000 },
+      3: { 25000: 1500, 75000: 2500, 110000: 4000, 300000: 20000 }
     };
 
     const rules = {
@@ -937,6 +1015,8 @@
       previousFycTotal: document.querySelector("#previousFycTotal"),
       discountCatA: document.querySelector("#discountCatA"),
       discountEim: document.querySelector("#discountEim"),
+      advisorClub: document.querySelector("#advisorClub"),
+      m0m1Eligible: document.querySelector("#m0m1Eligible"),
       creditPercent: document.querySelector("#creditPercent"),
       creditAmount: document.querySelector("#creditAmount"),
       status: document.querySelector("#status"),
@@ -952,6 +1032,14 @@
       fycDetail: document.querySelector("#fycDetail"),
       firstYearCommissionAmount: document.querySelector("#firstYearCommissionAmount"),
       firstYearCommissionDetail: document.querySelector("#firstYearCommissionDetail"),
+      pensionProgramAmount: document.querySelector("#pensionProgramAmount"),
+      pensionProgramDetail: document.querySelector("#pensionProgramDetail"),
+      starClubAmount: document.querySelector("#starClubAmount"),
+      starClubDetail: document.querySelector("#starClubDetail"),
+      newL1Amount: document.querySelector("#newL1Amount"),
+      newL1Detail: document.querySelector("#newL1Detail"),
+      additionalProgramTotal: document.querySelector("#additionalProgramTotal"),
+      additionalProgramDetail: document.querySelector("#additionalProgramDetail"),
       progressBar: document.querySelector("#progressBar"),
       progressStart: document.querySelector("#progressStart"),
       progressEnd: document.querySelector("#progressEnd"),
@@ -986,7 +1074,9 @@
         ecs: el.ecs.checked,
         defermentYears: n(el.defermentYears),
         persistency: n(el.persistency),
-        discountEligible: el.discountCatA.checked || el.discountEim.checked
+        discountEligible: el.discountCatA.checked || el.discountEim.checked,
+        advisorClub: el.advisorClub.value,
+        m0m1Eligible: el.m0m1Eligible.value === "yes"
       };
     }
 
@@ -1121,6 +1211,7 @@
     function calculatePreviousLogins() {
       let wcpTotal = 0;
       let fycTotal = 0;
+      const cases = [];
       const rows = [...el.previousLogins.querySelectorAll(".login-row")];
       rows.forEach((row) => {
         updatePreviousLoginRow(row);
@@ -1144,11 +1235,12 @@
         const fyc = firstYearCommission(productKey, rule, data);
         wcpTotal += credit.wcpAmount;
         if (fyc.amount > 0) fycTotal += fyc.amount;
+        cases.push({ productKey, rule, data, wcpAmount: credit.wcpAmount });
         output.textContent = `WCP ${rupees.format(credit.wcpAmount)} | FYC ${fyc.amount > 0 ? rupees.format(fyc.amount) : "Not mapped"}`;
       });
       el.previousWcpTotal.textContent = rupees.format(wcpTotal);
       el.previousFycTotal.textContent = rupees.format(fycTotal);
-      return { wcpTotal, fycTotal };
+      return { wcpTotal, fycTotal, cases };
     }
 
     function slabGridFor(periodKey, discountEligible) {
@@ -1226,6 +1318,99 @@
         wrp,
         label: "Traditional WRP reward",
         detail: `${blocks} complete block(s) of ${rupees.format(200000)} beyond ${rupees.format(2000000)} at ${rupees.format(30000)} each.`
+      };
+    }
+
+    function pensionSpecialRate(productKey, data) {
+      if (productKey === "pension") {
+        let band = null;
+        if (data.premium >= 500000) band = "high";
+        else if (data.premium >= 350000) band = "mid";
+        else if (data.premium >= 200000) band = "low";
+
+        if (!band) {
+          return { rate: 0, label: "Pension Special not applicable below 2.0L ATS." };
+        }
+
+        const table = {
+          low: { zeroDp: 5, fourDpOr7Ppt: 8, tenPpt: 12, label: ">= 2.0L to 3.49L" },
+          mid: { zeroDp: 6, fourDpOr7Ppt: 10, tenPpt: 15, label: ">= 3.5L to 4.99L" },
+          high: { zeroDp: 10, fourDpOr7Ppt: 14, tenPpt: 20, label: ">= 5.0L" }
+        };
+        const row = table[band];
+
+        if (data.ppt === 10) return { rate: row.tenPpt, label: `Pension Special ${row.label}, 10 PPT` };
+        if (data.ppt === 7 || (data.ppt === 6 && data.defermentYears >= 4)) {
+          return { rate: row.fourDpOr7Ppt, label: `Pension Special ${row.label}, 6 PPT with 4+ deferment or 7 PPT` };
+        }
+        if (data.ppt === 6 && data.defermentYears === 0) {
+          return { rate: row.zeroDp, label: `Pension Special ${row.label}, 6 PPT with 0 deferment` };
+        }
+        return { rate: 0, label: "Pension Special needs 6 PPT with 0/4+ deferment, 7 PPT, or 10 PPT." };
+      }
+
+      if (productKey === "pension2Pay") return { rate: 5, label: "Pension Launch Special, 2 PPT" };
+      if (productKey === "pension3Pay") return { rate: 6, label: "Pension Launch Special, 3 PPT" };
+      if (productKey === "pensionPro") {
+        if (data.premium >= 2500000) return { rate: 5, label: "Pension Pro Launch Special, 25L premium" };
+        if (data.premium >= 1500000) return { rate: 4, label: "Pension Pro Launch Special, 15L premium" };
+        return { rate: 0, label: "Pension Pro Launch Special needs 15L premium." };
+      }
+
+      return { rate: 0, label: "Not a pension special product." };
+    }
+
+    function pensionProgramReward(productKey, data, payout) {
+      const rate = pensionSpecialRate(productKey, data);
+      const gross = data.premium * rate.rate / 100;
+      return {
+        gross,
+        amount: gross * payout.multiplier,
+        rate: rate.rate,
+        detail: rate.rate > 0
+          ? `${rate.label}: ${rate.rate}% of WRP. ${payout.label} at ${data.persistency}% persistency. Gross ${rupees.format(gross)}.`
+          : rate.label
+      };
+    }
+
+    function starClubReward(clubKey, totalFyc) {
+      const club = starClubRates[clubKey] || starClubRates.none;
+      const amount = totalFyc * club.rate / 100;
+      return {
+        amount,
+        rate: club.rate,
+        detail: club.rate > 0
+          ? `${club.label}: ${club.rate}% of total first year commission ${rupees.format(totalFyc)}. Star Club table assumes 85% 13th month persistency qualification.`
+          : "Select advisor club to calculate Star Club payout."
+      };
+    }
+
+    function newL1LaunchCasePayout(wcpAmount, nopCount) {
+      const row = newL1LaunchRates[Math.min(Math.max(nopCount, 1), 3)];
+      if (wcpAmount >= 300000) return row[300000];
+      if (wcpAmount >= 110000) return row[110000];
+      if (wcpAmount >= 75000) return row[75000];
+      if (wcpAmount >= 25000) return row[25000];
+      return 0;
+    }
+
+    function newL1LaunchReward(cases, enabled) {
+      if (!enabled) {
+        return { amount: 0, detail: "M0-M1 is set to No." };
+      }
+
+      const excluded = new Set(["gain", "pension2Pay", "pension3Pay", "pensionPro"]);
+      const eligible = cases.filter((item) => item.wcpAmount > 0 && !excluded.has(item.productKey));
+      if (!eligible.length) {
+        return { amount: 0, detail: "No eligible New L1 Launch cases. GAIN, Pension 2/3 PPT and Pension Pro are excluded." };
+      }
+
+      const nopCount = Math.min(eligible.length, 3);
+      const gross = eligible.reduce((sum, item) => sum + newL1LaunchCasePayout(item.wcpAmount, nopCount), 0);
+      const amount = Math.min(gross, 100000);
+      return {
+        amount,
+        detail: `${eligible.length} eligible NOP(s). Reward is per NOP by calculated WCP and capped at ${rupees.format(100000)}.${gross > amount ? ` Gross ${rupees.format(gross)} capped.` : ""}`
       };
     }
 
@@ -1341,6 +1526,17 @@
       const adjustedReward = grossReward * payout.multiplier;
       const fyc = firstYearCommission(el.product.value, rule, data);
       const totalFyc = fyc.amount + previousTotals.fycTotal;
+      const currentCase = {
+        productKey: el.product.value,
+        rule,
+        data,
+        wcpAmount: credit.wcpAmount
+      };
+      const allCases = credit.wcpAmount > 0 ? [currentCase, ...previousTotals.cases] : previousTotals.cases;
+      const pensionProgram = pensionProgramReward(el.product.value, data, payout);
+      const starClub = starClubReward(data.advisorClub, totalFyc);
+      const newL1 = newL1LaunchReward(allCases, data.m0m1Eligible);
+      const additionalTotal = pensionProgram.amount + starClub.amount + newL1.amount;
       const nextText = position.next ? `Slab ${position.next}` : "Max achieved";
 
       el.creditPercent.textContent = `${credit.blendedPercent}%`;
@@ -1357,6 +1553,14 @@
       el.fycDetail.textContent = position.achieved > 0 ? rewardText(position) : "No slab achieved yet.";
       el.firstYearCommissionAmount.textContent = totalFyc > 0 ? rupees.format(totalFyc) : "Not mapped";
       el.firstYearCommissionDetail.textContent = `Current: ${fyc.amount > 0 ? rupees.format(fyc.amount) : "Not mapped"} (${fyc.rateLabel}). Previous: ${rupees.format(previousTotals.fycTotal)}.`;
+      el.pensionProgramAmount.textContent = rupees.format(pensionProgram.amount);
+      el.pensionProgramDetail.textContent = pensionProgram.detail;
+      el.starClubAmount.textContent = rupees.format(starClub.amount);
+      el.starClubDetail.textContent = starClub.detail;
+      el.newL1Amount.textContent = rupees.format(newL1.amount);
+      el.newL1Detail.textContent = newL1.detail;
+      el.additionalProgramTotal.textContent = rupees.format(additionalTotal);
+      el.additionalProgramDetail.textContent = `Pension ${rupees.format(pensionProgram.amount)} + Star Club ${rupees.format(starClub.amount)} + New L1 ${rupees.format(newL1.amount)}.`;
 
       const previousAsk = position.achieved === 0 ? 0 : position.grid.ask[position.achieved - 1];
       const lastAsk = [...position.grid.ask].reverse().find((ask) => ask != null) || 0;
@@ -1375,6 +1579,10 @@
       addBreakdown("Current login FYC", fyc.amount > 0 ? rupees.format(fyc.amount) : "Not mapped", "");
       addBreakdown("Previous login FYC", rupees.format(previousTotals.fycTotal), "");
       addBreakdown("Total first year commission", totalFyc > 0 ? rupees.format(totalFyc) : "Not mapped", "");
+      addBreakdown("Pension special / launch payout", rupees.format(pensionProgram.amount), "");
+      addBreakdown("Star Club payout", rupees.format(starClub.amount), "");
+      addBreakdown("New L1 Launch payout", rupees.format(newL1.amount), "");
+      addBreakdown("Additional program payout total", rupees.format(additionalTotal), "");
 
       el.status.className = credit.capped ? "status warn" : "status";
       el.status.textContent = credit.capped
@@ -1390,6 +1598,9 @@
       if (rule.special !== "superSuraksha") notes.push("When ECS is No, the product grid calculator applies a 10% deduction.");
       if (rule.special === "gainPlusSmartSavings") notes.push(`Gain Plus WCP includes Gain Plus premium plus Smart Savings premium at ${credit.smartSavingsRate}%.`);
       notes.push("First year commission is calculated from the supplied FYC logic and includes current plus previous logins.");
+      notes.push("Pension Special / Launch payout is calculated only from the currently selected pension product and uses the same 13th month persistency multiplier.");
+      notes.push("Star Club payout uses the manually selected advisor club percentage on total first year commission.");
+      notes.push("New L1 Launch Program uses current plus previous eligible login rows when M0-M1 is Yes; each row payout is based on calculated WCP, GAIN, Pension 2/3 PPT and Pension Pro are excluded, and payout is capped at INR 1,00,000.");
       if (rule.special === "pension3Pay") notes.push("Pension 3 Pay base credit is 25% when deferment is below 3, and 35% when deferment is 3 or more.");
       if (rule.name === "SAFE") notes.push("SAFE base is listed as 65% for 7/8 PPT in the product grid.");
       notes.push("Previous-login rows calculate WCP using the same product grid and are added to the L1 slab total.");
