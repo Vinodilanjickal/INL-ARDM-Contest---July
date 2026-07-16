@@ -947,7 +947,7 @@
         pptCredit: () => null,
         ticketCredit: () => null,
         extraCredit: () => null,
-        summary: ["GAIN 2 lakh; Smart Savings 56K", "GAIN 90%; Smart Savings 60%", "GAIN defaults to 10 PPT / 30 PT", "GAIN ATS above 3L +10%", "Smart Savings +40% if INR 5,000 rider is attached", "Both components capped at 100%; ECS mandatory for Smart Savings credit"]
+        summary: ["GAIN 2 lakh; Smart Savings 56K", "GAIN 90%; Smart Savings 60%", "GAIN defaults to 10 PPT / 30 PT", "GAIN ATS 3L and above +10%", "Smart Savings +40% if INR 5,000 rider is attached", "Both components capped at 100%; ECS mandatory for Smart Savings credit"]
       },
       gem: {
         name: "GEM", mpl: 0, special: "gemAssumption", base: 60, max: 90, rider: 10,
@@ -1175,7 +1175,7 @@
 
       if (rule.special === "gainPlusSmartSavings") {
         const gainBase = 90;
-        const gainAtsCredit = data.premium > 300000 ? 10 : 0;
+        const gainAtsCredit = data.premium >= 300000 ? 10 : 0;
         const gainRaw = gainBase + gainAtsCredit;
         const gainActual = Math.max(0, Math.min(gainRaw, 100));
         const smartSavingsEligible = data.smartSavingsPremium >= 56000 && data.ecs;
@@ -1188,7 +1188,7 @@
 
         if (render) {
           addBreakdown("GAIN component base credit", gainBase);
-          if (gainAtsCredit > 0) addBreakdown("GAIN ATS above 3L credit", gainAtsCredit);
+          if (gainAtsCredit > 0) addBreakdown("GAIN ATS 3L and above credit", gainAtsCredit);
           addBreakdown("GAIN component max credit", 100);
           addBreakdown("GAIN component WCP", rupees.format(gainWcp), "");
           if (data.gainPlusRate == null) addBreakdown("GAIN Plus age rate", "Not available", "");
