@@ -570,9 +570,13 @@
           <details>
             <summary>Optional inputs</summary>
             <div class="advanced">
+              <label id="gainPlusAgeGroup">
+                Age for Gain Plus 10 PPT / 30 PT rate
+                <input id="gainPlusAge" type="number" min="0" max="45" step="1" value="35">
+              </label>
               <label id="smartSavingsGroup">
-                Smart Savings premium from GAIN
-                <input id="smartSavingsPremium" type="number" min="0" step="1000" value="0">
+                Auto Smart Savings premium from Gain Plus table
+                <input id="smartSavingsPremium" type="number" min="0" step="1" value="0" readonly>
               </label>
               <div class="choice-row">
                 <label class="switch"><input id="discountCatA" type="checkbox"> CAT A as on 1 Jul</label>
@@ -836,6 +840,17 @@
       3: { 25000: 1500, 75000: 2500, 110000: 4000, 300000: 20000 }
     };
 
+    const gainPlusRates1030 = {
+      0: 25.29, 1: 25.23, 2: 25.18, 3: 25.12, 4: 25.07, 5: 25.01,
+      6: 24.96, 7: 24.90, 8: 24.85, 9: 24.79, 10: 24.74, 11: 24.69,
+      12: 24.63, 13: 24.58, 14: 24.52, 15: 24.47, 16: 24.42, 17: 24.36,
+      18: 24.31, 19: 24.26, 20: 24.21, 21: 24.16, 22: 24.11, 23: 24.06,
+      24: 24.01, 25: 23.96, 26: 23.91, 27: 23.85, 28: 23.80, 29: 23.75,
+      30: 23.70, 31: 23.65, 32: 23.60, 33: 23.55, 34: 23.50, 35: 23.45,
+      36: 23.22, 37: 22.99, 38: 22.76, 39: 22.53, 40: 22.31, 41: 22.08,
+      42: 21.85, 43: 21.62, 44: 21.40, 45: 21.17
+    };
+
     const rules = {
       ace: {
         name: "Nishchit ACE", mpl: 150000, base: 60, max: 110, rider: 10,
@@ -928,11 +943,11 @@
         summary: ["1.10 lakh", "50%", "10 PPT +20%; 11/12 PPT +30%", "ATS above 2L +10%; matching PT +10%", "+10%", "100% or 110%"]
       },
       gainPlus: {
-        name: "Gain Plus", mpl: 200000, special: "gainPlusSmartSavings", expectedPpt: 10, expectedPt: 30, base: 90, max: 999, rider: 0,
+        name: "Gain Plus", mpl: 200000, special: "gainPlusSmartSavings", expectedPpt: 10, expectedPt: 30, base: 0, max: 999, rider: 0,
         pptCredit: () => null,
-        ticketCredit: ({ premium }) => premium >= 300000 ? ["GAIN Plus ATS credit at 3L and above", 10] : null,
+        ticketCredit: () => null,
         extraCredit: () => null,
-        summary: ["2 lakh", "GAIN Plus premium 90%; Smart Savings premium 60%", "-", "GAIN Plus ATS 3L+ +10%", "Smart Savings rider +40% when Rider Yes", "No cap specified"]
+        summary: ["GAIN 2 lakh; Smart Savings 56K", "GAIN 90%; Smart Savings 60%", "GAIN defaults to 10 PPT / 30 PT", "GAIN ATS above 3L +10%", "Smart Savings +40% if INR 5,000 rider is attached", "Both components capped at 100%; ECS mandatory for Smart Savings credit"]
       },
       gem: {
         name: "GEM", mpl: 0, special: "gemAssumption", base: 60, max: 90, rider: 10,
@@ -1005,6 +1020,8 @@
       ptGroup: document.querySelector("#ptGroup"),
       rider: document.querySelector("#rider"),
       ecs: document.querySelector("#ecs"),
+      gainPlusAgeGroup: document.querySelector("#gainPlusAgeGroup"),
+      gainPlusAge: document.querySelector("#gainPlusAge"),
       smartSavingsGroup: document.querySelector("#smartSavingsGroup"),
       smartSavingsPremium: document.querySelector("#smartSavingsPremium"),
       defermentGroup: document.querySelector("#defermentGroup"),
@@ -1056,6 +1073,17 @@
       return typeof ruleValue === "function" ? ruleValue(data) : ruleValue;
     }
 
+    function gainPlusSmartSavingsPremium(age, gainPremium) {
+      const normalizedAge = Math.trunc(Number(age));
+      const rate = Object.prototype.hasOwnProperty.call(gainPlusRates1030, normalizedAge)
+        ? gainPlusRates1030[normalizedAge]
+        : null;
+      return {
+        rate,
+        amount: rate == null ? 0 : Math.round(gainPremium * rate / 100)
+      };
+    }
+
     function usesDeferment(rule) {
       return ["nischitPension", "pension3Pay"].includes(rule.special);
     }
@@ -1065,9 +1093,13 @@
     }
 
     function inputData() {
+      const gainPlusRate = gainPlusSmartSavingsPremium(n(el.gainPlusAge), n(el.premium));
+      if (el.product.value === "gainPlus") el.smartSavingsPremium.value = gainPlusRate.amount;
       return {
         premium: n(el.premium),
-        smartSavingsPremium: n(el.smartSavingsPremium),
+        smartSavingsPremium: el.product.value === "gainPlus" ? gainPlusRate.amount : n(el.smartSavingsPremium),
+        gainPlusAge: n(el.gainPlusAge),
+        gainPlusRate: gainPlusRate.rate,
         ppt: n(el.ppt),
         pt: n(el.pt),
         riderSelected: el.rider.checked,
@@ -1096,6 +1128,7 @@
     function updateControls({ enforcePremium = false } = {}) {
       const rule = rules[el.product.value];
       el.smartSavingsGroup.classList.toggle("hidden", rule.special !== "gainPlusSmartSavings");
+      el.gainPlusAgeGroup.classList.toggle("hidden", rule.special !== "gainPlusSmartSavings");
       el.ptGroup.classList.toggle("hidden", isPension(rule));
       el.defermentGroup.classList.toggle("hidden", !usesDeferment(rule));
 
@@ -1116,6 +1149,12 @@
       el.defermentYears.min = "0";
 
       if (!usesDeferment(rule)) el.defermentYears.value = 0;
+      if (rule.special === "gainPlusSmartSavings") {
+        const gainPlusRate = gainPlusSmartSavingsPremium(n(el.gainPlusAge), n(el.premium));
+        el.smartSavingsPremium.value = gainPlusRate.amount;
+      } else {
+        el.smartSavingsPremium.value = 0;
+      }
 
       const minimum = effectiveMpl(rule, inputData());
       el.premium.min = String(minimum);
@@ -1133,6 +1172,53 @@
 
     function computeCredit(rule, data, { render = true } = {}) {
       if (render) el.breakdown.innerHTML = "";
+
+      if (rule.special === "gainPlusSmartSavings") {
+        const gainBase = 90;
+        const gainAtsCredit = data.premium > 300000 ? 10 : 0;
+        const gainRaw = gainBase + gainAtsCredit;
+        const gainActual = Math.max(0, Math.min(gainRaw, 100));
+        const smartSavingsEligible = data.smartSavingsPremium >= 56000 && data.ecs;
+        const smartSavingsRate = smartSavingsEligible ? Math.min(100, 60 + (data.riderSelected ? 40 : 0)) : 0;
+        const gainWcp = data.premium * gainActual / 100;
+        const smartSavingsWcp = data.smartSavingsPremium * smartSavingsRate / 100;
+        const wcpAmount = gainWcp + smartSavingsWcp;
+        const comboPremium = data.premium + data.smartSavingsPremium;
+        const blendedPercent = comboPremium > 0 ? Math.round((wcpAmount / comboPremium) * 10000) / 100 : 0;
+
+        if (render) {
+          addBreakdown("GAIN component base credit", gainBase);
+          if (gainAtsCredit > 0) addBreakdown("GAIN ATS above 3L credit", gainAtsCredit);
+          addBreakdown("GAIN component max credit", 100);
+          addBreakdown("GAIN component WCP", rupees.format(gainWcp), "");
+          if (data.gainPlusRate == null) addBreakdown("GAIN Plus age rate", "Not available", "");
+          else addBreakdown(`GAIN Plus age ${data.gainPlusAge} income rate`, `${data.gainPlusRate}%`, "");
+          addBreakdown("Smart Savings derived premium", rupees.format(data.smartSavingsPremium), "");
+          if (data.smartSavingsPremium > 0) {
+            if (data.smartSavingsPremium < 56000) addBreakdown("Smart Savings below MPL 56K credit", 0);
+            else if (!data.ecs) addBreakdown("Smart Savings credit zero because ECS is not selected", 0);
+            else {
+              addBreakdown("Smart Savings base credit", 60);
+              if (data.riderSelected) addBreakdown("Smart Savings rider credit", 40);
+              addBreakdown("Smart Savings max credit", 100);
+            }
+            addBreakdown("Smart Savings component WCP", rupees.format(smartSavingsWcp), "");
+          }
+        }
+
+        return {
+          raw: gainRaw,
+          actual: gainActual,
+          blendedPercent,
+          wcpAmount,
+          capped: gainRaw > 100,
+          smartSavingsRate,
+          gainWcp,
+          smartSavingsWcp,
+          smartSavingsEligible
+        };
+      }
+
       const baseCredit = valueOf(rule.base, data);
       let raw = baseCredit;
       if (render) addBreakdown("Base credit", baseCredit);
@@ -1184,9 +1270,15 @@
     }
 
     function previousLoginData(row) {
+      const productKey = row.querySelector(".prev-product").value;
+      const premium = Number(row.querySelector(".prev-premium").value || 0);
+      const age = Number(row.querySelector(".prev-gain-age")?.value || 0);
+      const gainPlusRate = gainPlusSmartSavingsPremium(age, premium);
       return {
-        premium: Number(row.querySelector(".prev-premium").value || 0),
-        smartSavingsPremium: 0,
+        premium,
+        smartSavingsPremium: productKey === "gainPlus" ? gainPlusRate.amount : Number(row.querySelector(".prev-smart-savings")?.value || 0),
+        gainPlusAge: age,
+        gainPlusRate: gainPlusRate.rate,
         ppt: Number(row.querySelector(".prev-ppt").value || 0),
         pt: Number(row.querySelector(".prev-pt").value || 0),
         riderSelected: row.querySelector(".prev-rider").value === "yes",
@@ -1202,10 +1294,20 @@
       const rule = rules[productKey];
       const defermentLabel = row.querySelector(".prev-deferment-label");
       const defermentInput = row.querySelector(".prev-deferment");
+      const smartSavingsLabel = row.querySelector(".prev-smart-savings-label");
+      const gainAgeLabel = row.querySelector(".prev-gain-age-label");
 
       defermentLabel.classList.toggle("hidden", !usesDeferment(rule));
       defermentInput.min = "0";
       if (!usesDeferment(rule)) defermentInput.value = 0;
+      smartSavingsLabel.classList.toggle("hidden", rule.special !== "gainPlusSmartSavings");
+      gainAgeLabel.classList.toggle("hidden", rule.special !== "gainPlusSmartSavings");
+      if (rule.special === "gainPlusSmartSavings") {
+        const gainPlusRate = gainPlusSmartSavingsPremium(Number(row.querySelector(".prev-gain-age").value || 0), Number(row.querySelector(".prev-premium").value || 0));
+        row.querySelector(".prev-smart-savings").value = gainPlusRate.amount;
+      } else {
+        row.querySelector(".prev-smart-savings").value = 0;
+      }
     }
 
     function calculatePreviousLogins() {
@@ -1235,7 +1337,12 @@
         const fyc = firstYearCommission(productKey, rule, data);
         wcpTotal += credit.wcpAmount;
         if (fyc.amount > 0) fycTotal += fyc.amount;
-        cases.push({ productKey, rule, data, wcpAmount: credit.wcpAmount });
+        if (rule.special === "gainPlusSmartSavings") {
+          if (credit.gainWcp > 0) cases.push({ productKey: "gainPlusGain", rule, data, wcpAmount: credit.gainWcp });
+          if (credit.smartSavingsWcp > 0) cases.push({ productKey: "gainPlusSmartSavings", rule, data, wcpAmount: credit.smartSavingsWcp });
+        } else {
+          cases.push({ productKey, rule, data, wcpAmount: credit.wcpAmount });
+        }
         output.textContent = `WCP ${rupees.format(credit.wcpAmount)} | FYC ${fyc.amount > 0 ? rupees.format(fyc.amount) : "Not mapped"}`;
       });
       el.previousWcpTotal.textContent = rupees.format(wcpTotal);
@@ -1532,7 +1639,13 @@
         data,
         wcpAmount: credit.wcpAmount
       };
-      const allCases = credit.wcpAmount > 0 ? [currentCase, ...previousTotals.cases] : previousTotals.cases;
+      const currentCases = rule.special === "gainPlusSmartSavings"
+        ? [
+          ...(credit.gainWcp > 0 ? [{ productKey: "gainPlusGain", rule, data, wcpAmount: credit.gainWcp }] : []),
+          ...(credit.smartSavingsWcp > 0 ? [{ productKey: "gainPlusSmartSavings", rule, data, wcpAmount: credit.smartSavingsWcp }] : [])
+        ]
+        : (credit.wcpAmount > 0 ? [currentCase] : []);
+      const allCases = [...currentCases, ...previousTotals.cases];
       const pensionProgram = pensionProgramReward(el.product.value, data, payout);
       const starClub = starClubReward(data.advisorClub, totalFyc);
       const newL1 = newL1LaunchReward(allCases, data.m0m1Eligible);
@@ -1596,7 +1709,7 @@
       if (minimum > 0) notes.push(`Minimum premium reference used: ${rupees.format(minimum)}.`);
       if (minimum === 0) notes.push("MPL is shown as product-specific in the source grid, so the entered premium is used.");
       if (rule.special !== "superSuraksha") notes.push("When ECS is No, the product grid calculator applies a 10% deduction.");
-      if (rule.special === "gainPlusSmartSavings") notes.push(`Gain Plus WCP includes Gain Plus premium plus Smart Savings premium at ${credit.smartSavingsRate}%.`);
+      if (rule.special === "gainPlusSmartSavings") notes.push(`Gain Plus WCP is split into GAIN component WCP at ${credit.actual}% plus Smart Savings derived-premium WCP at ${credit.smartSavingsRate}%. Smart Savings premium is auto-calculated from the extracted GAIN 10 PPT / 30 PT age rate table. Smart Savings credit requires at least INR 56,000 Smart Savings premium and ECS Yes; rider adds 40% only on Smart Savings. Gain Plus is treated as 2 NOPs for NOP-linked programs when both components have WCP.`);
       notes.push("First year commission is calculated from the supplied FYC logic and includes current plus previous logins.");
       notes.push("Pension Special / Launch payout is calculated only from the currently selected pension product and uses the same 13th month persistency multiplier.");
       notes.push("Star Club payout uses the manually selected advisor club percentage on total first year commission.");
@@ -1624,6 +1737,8 @@
         <div class="login-row" data-row="${rowNumber}">
           <label>Product<select class="prev-product">${productOptionsHtml()}</select></label>
           <label>Premium<input class="prev-premium" type="number" min="0" step="1000" value="0"></label>
+          <label class="prev-gain-age-label hidden">Age<input class="prev-gain-age" type="number" min="0" max="45" step="1" value="35"></label>
+          <label class="prev-smart-savings-label hidden">Auto Smart Savings premium<input class="prev-smart-savings" type="number" min="0" step="1" value="0" readonly></label>
           <label>PPT<input class="prev-ppt" type="number" min="0" step="1" value="10"></label>
           <label>PT<input class="prev-pt" type="number" min="0" step="1" value="20"></label>
           <label>Rider<select class="prev-rider"><option value="no">No</option><option value="yes">Yes</option></select></label>
